@@ -1,0 +1,25 @@
+version: 0.2
+env:
+  variables:
+    IMAGE_TAG: "latest"
+phases:
+  pre_build:
+    commands:
+      - echo Logging in to Amazon ECR...
+      - ECR_URI=$ECR_REPO
+      - aws ecr get-login-password --region $AWS_DEFAULT_REGION | docker login --username AWS --password-stdin $ECR_URI
+  build:
+    commands:
+      - echo Building Docker image...
+      - docker build -t $ECR_URI:$IMAGE_TAG .
+      - docker tag $ECR_URI:$IMAGE_TAG $ECR_URI:$CODEBUILD_RESOLVED_SOURCE_VERSION
+  post_build:
+    commands:
+      - echo Pushing Docker image to ECR...
+      - docker push $ECR_URI:$IMAGE_TAG
+      - docker push $ECR_URI:$CODEBUILD_RESOLVED_SOURCE_VERSION
+      - echo Writing image definitions file...
+      - printf '[{"name":"web","imageUri":"%s"}]' $ECR_URI:$IMAGE_TAG > imagedefinitions.json
+artifacts:
+  files:
+    - imagedefinitions.json
